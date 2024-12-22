@@ -1,0 +1,18 @@
+.checkers__wrapper {
+    max-width: 800px;
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 auto;
+}
+.container .checkers__cell {
+    width: calc(12.5% - 8px);
+    margin: 4px;
+    border-radius: 4px;
+    box-shadow: 0 0 6px 0 #000000;
+}
+.container .checkers__cell.is-black {
+    background-color: #000000;
+}
+.container .checkers__cell-inner {
+    padding-top: 100%;
+}
