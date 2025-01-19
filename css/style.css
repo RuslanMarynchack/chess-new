@@ -22,6 +22,9 @@
     background-color: #c20000;
     cursor: pointer;
 }
+.checkers__cell:not(.is-attack).is-shah {
+    box-shadow: 0 0 6px 4px #c20000;
+}
 .container .checkers__cell-inner {
     padding-top: 100%;
 }
