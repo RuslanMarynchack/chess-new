@@ -5,14 +5,17 @@ const selectors = {
     checkersWrapper: '.js-checkers',
     cell: '.js-checkers-cell',
     cellInner: '.js-checkers-cell-inner',
-    figure: '.js-cell-figure'
+    figure: '.js-cell-figure',
+    popup: '.js-figures-popup'
 }
 
 const classes = {
+    figure: 'js-cell-figure',
     active: 'is-active',
     black: 'is-black',
     attack: 'is-attack',
     firstMove: 'is-first-move',
+    lastMove: 'is-last-move',
     shah: 'is-shah'
 }
 
@@ -29,15 +32,20 @@ function handlerBoardSize(isBlack = false) {
 }
 
 const container = document.querySelector(selectors.container);
+const speedAnimation = 700;
+const attackedChess = [];
 
 let listMoves = [];
-let currentListMoves = [];
-let previousListMoves = [];
-let defendersAndKingListMoves = [];
+let attackVectorToKing = [];
+let previousListMovesTo = [];
+let currentListMovesTo = [];
+let listDefenderAndKingPieces = [];
 let isBoardSize = handlerBoardSize(true);
 let isTargetFigure = null;
+let isTargetFigureRook = null;
 let isTargetIndex = 0;
-let currentMove = 'black';
+let isBlockedMove = false;
+let isCurrentMove = 'black';
 
 function createBoard() {
     if (!container) {
@@ -58,10 +66,8 @@ function createBoard() {
             const cell = document.createElement('div');
             const cellInner = document.createElement('div');
 
-            cell.classList.add('checkers__cell')
-            cell.classList.add('js-checkers-cell')
-            cellInner.classList.add('checkers__cell-inner')
-            cellInner.classList.add('js-checkers-cell-inner')
+            cell.classList.add('checkers__cell', 'js-checkers-cell');
+            cellInner.classList.add('checkers__cell-inner', 'js-checkers-cell-inner');
 
             isBlackCell = !isBlackCell;
 
@@ -93,30 +99,30 @@ function arrangeFigures(wrapper) {
         figure.classList.add('checkers__cell-figure', 'js-cell-figure');
 
         if (index > 7 && index <= 15 || index > 47 && index <= 55) {
-            // cellInner.append(figure);
-        } else if (index === 3 || index === 60) {
+            cellInner.append(figure);
+        } else if (index === 3 || index === 59) {
             cellInner.append(figure);
         } else if (index === 1 || index === 6 || index === 57 || index === 62) {
             // cellInner.append(figure);
-        } else if (index === 0 || index === 7 || index === 56 || index === 63) {
+        } else if (index === 0 || index === 19 || index === 56 || index === 63) {
             cellInner.append(figure);
         } else if (index === 2 || index === 5 || index === 58 || index === 61) {
             // cellInner.append(figure);
         }
 
         if (index > 7 && index <= 15) {
-            // addElementClassesWithAttributes(figure, classes.pawn, true, "black", "♟");
+            addElementClassesWithAttributes(figure, classesFigure.pawn, true, "black", "♟");
         } else if (index > 47 && index <= 55) {
-            // addElementClassesWithAttributes(figure, classes.pawn, true, "white", "♙");
+            addElementClassesWithAttributes(figure, classesFigure.pawn, true, "white", "♙");
         } else if (index === 3) {
             addElementClassesWithAttributes(figure, classesFigure.king, true, "black", "♚");
-        } else if (index === 60) {
+        } else if (index === 59) {
             addElementClassesWithAttributes(figure, classesFigure.king, true, "white", "♔");
         } else if (index === 1|| index === 6) {
-            // addElementClassesWithAttributes(figure, classesFigure.horse, false, "black", "♞");
+            addElementClassesWithAttributes(figure, classesFigure.horse, false, "black", "♞");
         } else if (index === 57  || index === 62) {
-            // addElementClassesWithAttributes(figure, classesFigure.horse, false, "white", "♘");
-        } else if (index === 0 || index === 7) {
+            addElementClassesWithAttributes(figure, classesFigure.horse, false, "white", "♘");
+        } else if (index === 0 || index === 19) {
             addElementClassesWithAttributes(figure, classesFigure.rook, true, "black", "♜");
         } else if (index === 56 || index === 63) {
             addElementClassesWithAttributes(figure, classesFigure.rook, true, "white", "♖");
@@ -149,17 +155,19 @@ function handlerClickFigure() {
         figure.addEventListener('click', function () {
             let cell = this.closest(selectors.cell);
 
-            if (defendersAndKingListMoves.length > 0) {
-                if (defendersAndKingListMoves.includes(cell)) {
+            if (listDefenderAndKingPieces.length > 0) {
+                if (listDefenderAndKingPieces.includes(cell)) {
                     cell = this.closest(selectors.cell);
                 } else {
                     return;
                 }
             }
 
-            if (cell && !cell.classList.contains(classes.attack)) {
+            if (cell && !cell.classList.contains(classes.attack) && this.dataset.type === isCurrentMove) {
                 isTargetFigure = this;
                 isTargetIndex = +cell.dataset.index;
+                console.log(isTargetFigure)
+                console.log(isCurrentMove)
             }
         });
 
@@ -172,70 +180,108 @@ function handlerClickFigureOnMove() {
     let lastClickedElement = null;
 
     window.addEventListener("click", (e) => {
-        // console.log(e.target.classList.contains('js-cell-figure'));
         let cell = e.target.closest(selectors.cell)
 
-        // console.log(cell)
         if (!cell) return;
 
+        const isTargetInner = isTargetFigure?.closest(selectors.cellInner);
         const cellInner = cell.querySelector(selectors.cellInner);
         const figure = cell.querySelector(selectors.figure);
 
         if (cell.classList.contains(classes.active) || cell.classList.contains(classes.attack)) {
+            handlerAnimationFigure(cell, cells);
+
+            // cells.forEach(cell => {
+            //     if (isTargetFigure.closest(selectors.cell) !== cell) cell.querySelector(selectors.cellInner).classList.remove(classes.lastMove);
+            // });
+            //
+            // cellInner.classList.add(classes.lastMove);
+            // isTargetFigure.closest(selectors.cellInner).classList.add(classes.lastMove);
+
             setTimeout(() => {
+                if (figure) figure.remove();
+            }, (speedAnimation / 2));
+
+            setTimeout(() => {
+                cellInner.append(isTargetFigure);
+
+                cells.forEach(cell => {
+                    handlerFigures(cell.querySelector(selectors.figure), cells, false);
+                });
+
+                isCurrentMove = isCurrentMove === 'black' ? 'white' : 'black';
+                handlerShahCheckmat();
+
+                if (isBlockedMove) {
+                    alert('Messages')
+                    blockingMoves(isTargetInner);
+                    cellInner.appendChild(figure);
+                    isBlockedMove = false;
+                    return
+                }
+
+                if (figure) {
+                    attackedChess.push(figure);
+                    addedFiguresIsPopup();
+                }
+
                 handlerKingCastling(cell, cells);
-            }, 0);
+                isTargetFigure.classList.remove(classes.firstMove);
+            }, speedAnimation);
 
-            if (figure) figure.remove();
-
-            setTimeout(() => {
-                isTargetFigure.classList.remove(classes.firstMove)
-            }, 0);
-
-            cellInner.append(isTargetFigure);
             listMoves = [];
-            cells.forEach(cell => handlerFigures(cell.querySelector(selectors.figure), cells, false));
-
-            currentMove = currentMove === 'black' ? 'white' : 'black';
+            listDefenderAndKingPieces = [];
 
             removeClasses(true);
-            cells.forEach(cell => handlerFigures(cell.querySelector(selectors.figure), cells, false));
-            handlerShahCheckmat();
             return;
         }
 
         if (lastClickedElement !== cell) {
             removeClasses();
+
+            if (isTargetFigure && isTargetFigure.dataset.type === isCurrentMove) {
+                isTargetFigure.closest(selectors.cellInner).classList.add(classes.active);
+            }
+
             lastClickedElement = cell;
         }
 
-        handlerFigures(isTargetFigure, cells, true);
+        if (isTargetFigure.dataset.type === isCurrentMove) handlerFigures(isTargetFigure, cells, true);
     });
 }
 
 function handlerFigures(targetFigure, list, isAddClasses) {
-    if (targetFigure && currentMove === targetFigure.dataset.type) {
-        const listHandlerFigures = {
-            [classesFigure.pawn]: handlerPawn,
-            [classesFigure.king]: handlerKing,
-            [classesFigure.horse]: handlerHorse,
-            [classesFigure.rook]: handleRook,
-            [classesFigure.bishop]: handleBishop
-        }
+    if (!targetFigure) return;
 
-        for (let key in classesFigure) {
-            const classFigure = classesFigure[key];
+    const listHandlerFigures = {
+        [classesFigure.pawn]: handlerPawn,
+        [classesFigure.king]: handlerKing,
+        [classesFigure.horse]: handlerHorse,
+        [classesFigure.rook]: handleRook,
+        [classesFigure.bishop]: handleBishop
+    }
 
-            if (targetFigure.classList.contains(classFigure)) {
-                listHandlerFigures[classFigure](targetFigure, list, isAddClasses);
-                break;
-            }
+    for (let key in classesFigure) {
+        const classFigure = classesFigure[key];
+
+        if (targetFigure && targetFigure.classList.contains(classFigure)) {
+            listHandlerFigures[classFigure](targetFigure, list, isAddClasses);
+            break;
         }
     }
 }
 
+// We block a move if there is a threat to the king after it.
+function blockingMoves(cellInner, cells) {
+    cellInner.appendChild(isTargetFigure);
+
+    isCurrentMove = isTargetFigure.dataset.type;
+}
+
 // We process the Pawn
 function  handlerPawn(pawn, cells, isAddClasses) {
+    const listNotMovesLeft = [0, 8, 16, 24, 32, 40, 48, 56];
+    const listNotMovesRight = [7, 15, 23, 31, 39, 47, 55, 63];
     const dataIndex = handlerDataIndex(pawn);
     const isBlack = pawn.dataset.type === 'black';
     let directions;
@@ -265,9 +311,12 @@ function  handlerPawn(pawn, cells, isAddClasses) {
         const nextMoveAttackFigure = nextMoveAttack.querySelector(selectors.figure);
         const forLength = pawn.classList.contains(classes.firstMove) ? 3 : 2;
 
-        if (nextMoveAttack && nextMoveAttackFigure && nextMoveAttackFigure.dataset.type !== currentMove) {
-            isAddClasses && nextMoveAttack.classList.add(classes.attack);
+        if (!handlerAddClasses(listNotMovesLeft, listNotMovesRight, isTargetIndex, nextMoveIndex)) {
             getMoves(pawn, nextMoveAttack);
+        }
+
+        if (nextMoveAttack && nextMoveAttackFigure && nextMoveAttackFigure.dataset.type !== isCurrentMove) {
+            isAddClasses && nextMoveAttack.classList.add(classes.attack);
         }
 
         for (let i=1; i<forLength; i++) {
@@ -277,7 +326,6 @@ function  handlerPawn(pawn, cells, isAddClasses) {
             if (nextMove.querySelector(selectors.figure)) break;
 
             isAddClasses && nextMove.classList.add(classes.active);
-            getMoves(pawn, nextMove);
         }
     }
 }
@@ -287,7 +335,6 @@ function handlerKing(king, cells, isAddClasses) {
     const notMoveLeft = [0, 8, 16, 24, 32, 40, 48, 56];
     const notMoveRight = [7, 15, 23, 31, 39, 47, 55, 63];
     const dataIndex = handlerDataIndex(king);
-    const previousListMovesTo = previousListMoves.map(({_, to}) => to);
     const directions = [
         {dx: 1, dy: -1}, {dx: 1, dy: 0},
         {dx: 1, dy: 1}, {dx: 0, dy: 1},
@@ -306,7 +353,7 @@ function handlerKing(king, cells, isAddClasses) {
 
         if (classHandlerResult) return;
 
-        if (nextMove && nextMoveFigure && nextMoveFigure.dataset.type !== currentMove) {
+        if (nextMove && nextMoveFigure && nextMoveFigure.dataset.type !== isCurrentMove) {
             isAddClasses && nextMove.classList.add(classes.attack);
             getMoves(king, nextMove);
         }
@@ -317,7 +364,8 @@ function handlerKing(king, cells, isAddClasses) {
         }
     });
 
-    if (isAddClasses) {
+    // Castling moves.
+    if (isAddClasses && king.classList.contains(classes.firstMove)) {
         const directionsCastling = [-1, 1];
 
         directionsCastling.forEach(direction => {
@@ -329,11 +377,10 @@ function handlerKing(king, cells, isAddClasses) {
                 if (figure) break;
 
                 const figureRook = cells[nextMoveIndex + direction].querySelector(selectors.figure);
-                // const nextMoveCastlingRook = cells[nextMoveIndex - direction];
 
-                if (figureRook && figureRook.classList.contains(classes.firstMove)) {
+                if (figureRook && figureRook.classList.contains(classes.firstMove) && !previousListMovesTo.includes(nextMoveCastling)) {
+                    isTargetFigureRook = figureRook;
                     nextMoveCastling.classList.add(classes.active);
-                    // console.log(nextMoveCastlingRook);
                 }
 
                 if (notMoveLeft.includes(nextMoveIndex) || notMoveRight.includes(nextMoveIndex)) break;
@@ -342,15 +389,16 @@ function handlerKing(king, cells, isAddClasses) {
     }
 }
 
+// We process castling.
 function handlerKingCastling(cell, cells) {
-    const figure = cell.querySelector(selectors.figure);
+    const figureKing = cell.querySelector(selectors.figure);
 
-    if (figure && figure.classList.contains(classesFigure.king) && figure.classList.contains(classes.firstMove)) {
-        const dataIndex = handlerDataIndex(figure);
+    if (figureKing && figureKing.classList.contains(classesFigure.king) && figureKing.classList.contains(classes.firstMove)) {
+        const dataIndex = handlerDataIndex(figureKing);
         const isTargetIndexCastling = isTargetIndex > dataIndex ? -1 : 1;
-        const figureRook = cells[dataIndex + isTargetIndexCastling].querySelector(selectors.figure);
+        const figureRook = cells[dataIndex + isTargetIndexCastling].querySelector(selectors.figure)
 
-        if (figureRook.classList.contains(classes.firstMove)) {
+        if (figureRook && figureRook.classList.contains(classes.firstMove) && figureRook.classList.contains(classesFigure.rook)) {
             const nextMoveCastlingRookInner = cells[dataIndex - isTargetIndexCastling].querySelector(selectors.cellInner);
 
             nextMoveCastlingRookInner.appendChild(figureRook);
@@ -372,20 +420,24 @@ function handlerHorse(horse, cells, isAddClasses) {
 
     directions.forEach(({dx, dy}) => {
         const nextMoveIndex = dataIndex + (dx * isBoardSize + dy);
-        // console.log(cells[dataIndex + (1 * (8 * 2) + 1)])
+
         if (0 > nextMoveIndex || nextMoveIndex >= cells.length) return;
+        if (Math.abs((dataIndex % 8) - (nextMoveIndex % 8)) > 2) return;
 
         const nextMove = cells[nextMoveIndex];
         const nextMoveFigure = nextMove.querySelector(selectors.figure);
-        const classHandlerResult = handlerAddClasses(notMoveLeft, notMoveRight, isTargetIndex, nextMoveIndex);
 
-        if (classHandlerResult) return;
+        getMoves(horse, horse.closest(selectors.cell));
 
         if (!nextMoveFigure) {
-            isAddClasses && nextMove.classList.add(classes.active);
-            getMoves(horse, nextMove);
-        } else if (nextMoveFigure.dataset.type !== currentMove) {
-            isAddClasses && nextMove.classList.add(classes.attack);
+            const isVectorValid = attackVectorToKing.length === 0 || attackVectorToKing.includes(nextMove);
+
+            if (isVectorValid) {
+                isAddClasses && nextMove.classList.add(classes.active);
+                getMoves(horse, nextMove);
+            }
+        } else if (nextMoveFigure.dataset.type !== isCurrentMove) {
+            isAddClasses && nextMove.classList.add(classes.attack)
             getMoves(horse, nextMove);
         }
     });
@@ -404,12 +456,12 @@ function handleRook(rook, cells, isAddClasses) {
     const directions = [-1, 1, -8, 8]; // Left, Right, Top, Bottom.
 
     directions.forEach((direction, index) => {
+        getMoves(rook, rook.closest(selectors.cell));
         const notMoves = listNotMoves[index];
         const isNotMoves = notMoves !== undefined;
 
         for (let i=1; i<8; i++) {
             const nextMoveIndex = dataIndex + (direction * i);
-
             if (0 > nextMoveIndex || nextMoveIndex >= cells.length) break;
 
             const nextMove = cells[nextMoveIndex];
@@ -419,15 +471,23 @@ function handleRook(rook, cells, isAddClasses) {
 
             if (isAddClasses) {
                 if (!nextMoveFigure) {
-                    nextMove.classList.add(classes.active);
+                    const isVectorValid = attackVectorToKing.length === 0 || attackVectorToKing.includes(nextMove);
+
+                    if (isVectorValid) {
+                        nextMove.classList.add(classes.active);
+                    }
                 } else {
-                    if (nextMoveFigure.dataset.type !== currentMove) {
+                    if (nextMoveFigure.dataset.type !== isCurrentMove) {
                         nextMove.classList.add(classes.attack);
                     }
 
                     break
                 }
             } else {
+                if (nextMoveFigure && !nextMoveFigure.classList.contains(classesFigure.king)) break;
+
+                // nextMoveFigure && nextMoveFigure.classList.contains(classesFigure.king) && nextMoveFigure.dataset.type !== isCurrentMove
+
                 getMoves(rook, nextMove);
             }
 
@@ -436,9 +496,10 @@ function handleRook(rook, cells, isAddClasses) {
     });
 }
 
-// We process the Round.
+// We process the Bishop.
 function handleBishop(bishop, cells, isAddClasses) {
-    const listNotMoves = [0, 8, 16, 24, 32, 40, 48, 56, 7, 15, 23, 31, 39, 47, 55, 63];
+    const listNotMovesLeft = [0, 8, 16, 24, 32, 40, 48, 56];
+    const listNotMovesRight = [7, 15, 23, 31, 39, 47, 55, 63];
     const dataIndex = handlerDataIndex(bishop);
     const directions = [
         {dx: 1, dy: -1},
@@ -448,6 +509,8 @@ function handleBishop(bishop, cells, isAddClasses) {
     ]
 
     directions.forEach(({dx, dy}, index) => {
+        getMoves(bishop, bishop.closest(selectors.cell));
+
         for (let i=1; i<8; i++) {
             const nextMoveIndex = dataIndex + (dx * i * isBoardSize + i * dy);
 
@@ -456,82 +519,142 @@ function handleBishop(bishop, cells, isAddClasses) {
             const nextMove = cells[nextMoveIndex];
             const nextMoveFigure = nextMove.querySelector(selectors.figure);
 
-            if (listNotMoves.includes(dataIndex)) break;
+            if (handlerAddClasses(listNotMovesLeft, listNotMovesRight, dataIndex, nextMoveIndex)) break;
+            // if (listNotMovesLeft.includes(dataIndex) && listNotMovesRight.includes(nextMoveIndex) || listNotMovesRight.includes(dataIndex) && listNotMovesLeft.includes(nextMoveIndex)) break;
 
             if (isAddClasses) {
                 if (!nextMoveFigure) {
-                    nextMove.classList.add(classes.active);
+                    const isVectorValid = attackVectorToKing.length === 0 || attackVectorToKing.includes(nextMove);
+
+                    if (isVectorValid) {
+                        nextMove.classList.add(classes.active);
+                    }
                 } else {
-                    if (nextMoveFigure.dataset.type !== currentMove) {
+                    if (nextMoveFigure.dataset.type !== isCurrentMove) {
                         nextMove.classList.add(classes.attack);
                     }
 
                     break
                 }
             } else {
+                if (nextMoveFigure && !nextMoveFigure.classList.contains(classesFigure.king)) break;
+
                 getMoves(bishop, nextMove);
             }
 
-
-            if (listNotMoves.includes(nextMoveIndex)) break
+            // if ((nextMoveIndex % 8 === 0 && dy === -1) || (nextMoveIndex % 8 === 7 && dy === 1)) break;
+            if (listNotMovesLeft.includes(nextMoveIndex) || listNotMovesRight.includes(nextMoveIndex)) break;
         }
     });
 }
 
 // We get all the moves of the current chess side.
 function getMoves(fromFigure, cell) {
-    if (!listMoves.includes(cell)) {
-        const capture = {
-            from: fromFigure,
-            to: cell
-        }
-
-        listMoves.push(capture);
+    const capture = {
+        from: fromFigure,
+        to: cell
     }
+
+    listMoves.push(capture);
 }
 
 // We process moves when the king is in danger.
 function handlerShahCheckmat() {
     if (listMoves.length <= 0) return;
 
-    currentListMoves = [];
-    previousListMoves = [];
-    defendersAndKingListMoves = [];
+    const currentListMoves = listMoves.filter(move => move.from.dataset.type === isCurrentMove);
+    const previousListMoves = listMoves.filter(move => move.from.dataset.type !== isCurrentMove);
+    // listDefenderAndKingPieces = [];
+    attackVectorToKing = [];
 
-    listMoves.forEach(move => {
-        if (move.from.dataset.type === currentMove) {
-            currentListMoves.push(move)
-        } else {
-            previousListMoves.push(move)
-        }
-    });
+    if (currentListMoves.length === 0 || previousListMoves.length === 0) return;
 
-    if (previousListMoves.length > 0 && currentListMoves.length > 0) {
-        previousListMoves.forEach(previousMove => {
-            const figure = previousMove.to.querySelector(selectors.figure);
-            let previousFrom;
+    handlerAttackVectorToKing(previousListMoves);
 
-            if (figure && figure.classList.contains(classesFigure.king) && figure.dataset.type === currentMove) {
-                const king = previousMove.to;
-                previousFrom = previousMove.from;
+    handlerListDefenderAndKingPieces(currentListMoves, previousListMoves);
+}
 
-                king.classList.add(classes.shah);
-                defendersAndKingListMoves.push(king);
+// We get the direction of the pieces' moves to the king into an array.
+function handlerAttackVectorToKing(previousList) {
+    previousList.forEach((previousMove, index, arr) => {
+        const elKing = previousMove.to.querySelector(`.${classesFigure.king}`);
+
+        if (elKing && elKing.dataset.type === isCurrentMove) {
+            let attackVector = [];
+
+            for (let j=1; j<=8; j++) {
+                if (arr[index - j].to.querySelector(selectors.figure) !== previousMove.from) {
+                    attackVector.push(arr[index - j].to);
+                } else {
+                    break;
+                }
             }
 
-            currentListMoves.forEach(currentMove => {
-                const figure = currentMove.to.querySelector(selectors.figure);
+            attackVectorToKing.push(...attackVector);
+        }
+    });
+}
 
-                if (figure === previousFrom) {
-                    defendersAndKingListMoves.push(currentMove.from.closest(selectors.cell));
+// We get pieces in an array that can move in shah.
+function handlerListDefenderAndKingPieces(currentList, previousList) {
+    previousList.forEach(previousMove => {
+        const figure = previousMove.to.querySelector(selectors.figure);
+        let king;
+        let previousFrom;
+
+        if (figure && figure.classList.contains(classesFigure.king) && figure.dataset.type === isCurrentMove) {
+            king = previousMove.to;
+            previousFrom = previousMove.from;
+
+            king.classList.add(classes.shah);
+            listDefenderAndKingPieces.push(king);
+        }
+
+        currentList.forEach(currentMove => {
+            const figure = currentMove.to.querySelector(selectors.figure);
+
+            if (figure === previousFrom || attackVectorToKing.includes(currentMove.to)) {
+                listDefenderAndKingPieces.push(currentMove.from.closest(selectors.cell));
+            }
+        });
+    });
+
+    isBlockedMove = currentList.some(currentMove => {
+        const figure = currentMove.to.querySelector(selectors.figure);
+
+        return figure && figure.classList.contains(classesFigure.king) && figure.dataset.type !== isCurrentMove
+    });
+
+    // console.log(isCurrentMove)
+    if (!isBlockedMove) {
+        previousListMovesTo = previousList.map(({_, to}) => to);
+        currentListMovesTo = currentList.map(({_, to}) => to);
+        listDefenderAndKingPieces = [...new Set(listDefenderAndKingPieces)];
+    }
+}
+
+// We get the index of the cell on which the figure is located.
+function handlerDataIndex(element) {
+    if (element.classList.contains(classes.figure)) {
+        return +element.closest(selectors.cell).dataset.index;
+    } else {
+        return +element.dataset.index;
+    }
+}
+
+// Add the attacked figures to the appropriate pop-up window, where they will be saved.
+function addedFiguresIsPopup() {
+    const popups = container.querySelectorAll(selectors.popup);
+
+    if (popups.length > 0) {
+        attackedChess.forEach(figure => {
+            popups.forEach(popup => {
+                if (popup.dataset.popupType === figure.dataset.type) {
+                    popup.appendChild(figure);
                 }
             });
         });
     }
-}
-// We get the index of the cell on which the figure is located.
-function handlerDataIndex(figure) {
-    return +figure.closest(selectors.cell).dataset.index;
 }
 
 // We delete the classes for the move.
@@ -539,16 +662,48 @@ function removeClasses(removeShah) {
     const cells = [...container.querySelectorAll(selectors.cell)];
 
     cells.forEach(cell => {
-        if (cell.classList.contains(classes.active)) {
-            cell.classList.remove(classes.active);
-        }
+        const cellInner = cell.querySelector(selectors.cellInner);
 
-        if (cell.classList.contains(classes.attack)) {
-            cell.classList.remove(classes.attack);
-        }
+        cellInner.classList.remove(classes.active);
+        cell.classList.remove(classes.active);
+        cell.classList.remove(classes.attack);
 
         if (cell.classList.contains(classes.shah) && removeShah) {
             cell.classList.remove(classes.shah);
         }
     });
+}
+
+// Adding animation for figures when moving.
+function handlerAnimationFigure(cellMove, listCell) {
+    const checkersWrapperRect = container.querySelector(selectors.checkersWrapper).getBoundingClientRect();
+    const cellMoveRect = cellMove.getBoundingClientRect();
+    const isTargetFigureRect = isTargetFigure.getBoundingClientRect();
+
+    const translateY = (cellMoveRect.top - checkersWrapperRect.top) - (isTargetFigureRect.top - checkersWrapperRect.top);
+    const translateX = (cellMoveRect.left - checkersWrapperRect.left) - (isTargetFigureRect.left - checkersWrapperRect.left);
+
+    const dataIndex = handlerDataIndex(cellMove);
+    const isTargetAhead  = isTargetIndex > dataIndex;
+    const cellRock = listCell[+cellMove.dataset.index + (isTargetAhead ? -1 : 1)];
+    const figureRook = cellRock?.querySelector(selectors.figure);
+
+    isTargetFigure.style.transform = `translate(${translateX}px, ${translateY}px)`;
+
+    // Adding animation for castling.
+    if (isTargetFigure.classList.contains(classesFigure.king) &&
+        isTargetFigure.classList.contains(classes.firstMove) &&
+        figureRook &&
+        figureRook.classList.contains(classesFigure.rook) &&
+        figureRook.classList.contains(classes.firstMove)
+    ) {
+        const figureRookTranslateX = isTargetAhead ? '218%' : '-218%';
+
+        figureRook.style.transform = `translateX(${figureRookTranslateX})`;
+    }
+
+    setTimeout(() => {
+        isTargetFigure.removeAttribute('style');
+        figureRook?.removeAttribute('style');
+    }, speedAnimation);
 }
