@@ -11,8 +11,23 @@
 <body>
     <div class="container js-container">
         <div class="checkers__wrapper js-checkers"></div>
-<!--        <div class="figures-popup js-figures-popup is-active" data-popup-type="black"></div>-->
-<!--        <div class="figures-popup js-figures-popup is-active" data-popup-type="white"></div>-->
+
+        <div class="figures-popup js-popup" id="popup-figures-black" data-popup-type="black">
+            <div class="checkers__cell-figure js-cell-figure is-rook" data-type="black">♜</div>
+            <div class="checkers__cell-figure js-cell-figure is-bishop" data-type="black">♝</div>
+        </div>
+
+        <div class="figures-popup js-popup" id="popup-figures-white" data-popup-type="white">
+            <div class="checkers__cell-figure js-cell-figure is-rook" data-type="white">♖</div>
+            <div class="checkers__cell-figure js-cell-figure is-bishop" data-type="white">♗</div>
+        </div>
+
+        <div class="popup js-popup is-active" id="popup-blocked-move">
+            <div class="popup__content">
+                <button class="popup__close js-popup-close">&times;</button>
+                <p>This measure cannot be performed if the king is in check after this move.</p>
+            </div>
+        </div>
     </div>
 
     <script src="js/script.js"></script>
