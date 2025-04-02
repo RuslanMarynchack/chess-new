@@ -22,10 +22,17 @@
             <div class="checkers__cell-figure js-cell-figure is-bishop" data-type="white">♗</div>
         </div>
 
-        <div class="popup js-popup is-active" id="popup-blocked-move">
+        <div class="popup js-popup" id="popup-blocked-move">
             <div class="popup__content">
                 <button class="popup__close js-popup-close">&times;</button>
                 <p>This measure cannot be performed if the king is in check after this move.</p>
+            </div>
+        </div>
+
+        <div class="popup js-popup" id="popup-ending-in-draw">
+            <div class="popup__content">
+                <button class="popup__close js-popup-close">&times;</button>
+                <p>The game ended in a draw.</p>
             </div>
         </div>
     </div>

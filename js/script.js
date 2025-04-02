@@ -34,30 +34,29 @@ const classesFigure = {
     queen: 'is-queen'
 }
 
-function handlerBoardSize(isBlack = false) {
-    return isBlack ? 8 : -8;
-}
-
 const container = document.querySelector(selectors.container);
 const checkersWrapper = container.querySelector(selectors.checkersWrapper);
 const speedAnimation = 700;
 const directionsLeftRight = [-1, 1];
 
+let listMovesVectors = [];
 let listMoves = [];
 let listAttackPawn = [];
 let attackVectorToKing = [];
+let lineVectorToKing = [];
 let previousListMovesTo = [];
 let listDefenderAndKingPieces = [];
-let isBoardSize = handlerBoardSize(true);
+let isBoardSize = 8;
 let isTargetFigure = null;
-let isTargetInner = null;
 let isTargetFigureRook = null;
 let isTargetIndex = 0;
 let isBlockedMove = false;
 let isCurrentMove = 'black';
+let countMoves = 0;
 
 function createBoard() {
     if (!container) {
+        console.warn("Container not found!")
         return
     }
 
@@ -85,7 +84,6 @@ function createBoard() {
     }
 
     arrangeFigures();
-    handlerClickFigure();
     handlerClickFigureOnMove();
 }
 
@@ -102,12 +100,12 @@ function arrangeFigures() {
         cellInner.closest(selectors.cell).setAttribute('data-index', index);
         figure.classList.add('checkers__cell-figure', 'js-cell-figure');
 
-        if (index > 40 && index <= 42 || index > 21 && index <= 23) {
+        if (index > 40 && index <= 42 || index > 21 && index <= 23 || index === 51 || index === 53) {
             cellInner.append(figure);
         } else if (index === 3 || index === 59) {
             cellInner.append(figure);
         } else if (index === 1 || index === 6 || index === 57 || index === 62) {
-            // cellInner.append(figure);
+            cellInner.append(figure);
         } else if (index === 0 || index === 19 || index === 56 || index === 63) {
             cellInner.append(figure);
         } else if (index === 2 || index === 5 || index === 58 || index === 61) {
@@ -118,7 +116,7 @@ function arrangeFigures() {
 
         if (index > 40 && index <= 42) {
             addElementClassesWithAttributes(figure, classesFigure.pawn, true, "black", "♟");
-        } else if (index > 21 && index <= 23) {
+        } else if (index > 21 && index <= 23 || index === 51 || index === 53) {
             addElementClassesWithAttributes(figure, classesFigure.pawn, true, "white", "♙");
         } else if (index === 3) {
             addElementClassesWithAttributes(figure, classesFigure.king, true, "black", "♚");
@@ -152,13 +150,21 @@ function addElementClassesWithAttributes(element, cls, isClsFirstMove, dataType,
     element.innerHTML = figure;
 }
 
+// The function compares the piece type with the current move type and returns `true`.
 function handlerFigureCurrentMove(figure) {
     return figure?.dataset.type === isCurrentMove
 }
 
+
+// Handles clicking on a piece while it is moving on the board.
+// The function determines whether the click is on an active square or a piece, which allows you to make a move,
+// and performs animations, piece transformations, move order changes, and checkmate checks.
+// Also takes into account the “50 moves” rule and the possibility of blocking a move due to a threat to the king.
 function handlerClickFigureOnMove() {
     const cells = [...checkersWrapper.querySelectorAll(selectors.cell)];
     let lastClickedElement = null;
+    let isLastMoveBlack = null;
+    let isLastMoveWhite = null;
 
     window.addEventListener("click", (e) => {
         let isClassFirstMove = false;
@@ -173,16 +179,24 @@ function handlerClickFigureOnMove() {
 
         const figure = cell.querySelector(selectors.figure);
 
-        handlerClickFigure(cell, figure);
+        handlerClickTargetFigure(cell, figure);
 
         if (!isTargetFigure) return;
 
+        const isTargetInner = isTargetFigure.closest(selectors.cellInner);
         const cellInner = cell.querySelector(selectors.cellInner);
-        const isPawnBoardSize = handlerBoardSize(isCurrentMove !== 'black');
+        // const isPawnBoardSize = handlerBoardSize(isCurrentMove !== 'black');
+        const isCellActive = cell.classList.contains(classes.active);
 
-        if (cell.classList.contains(classes.active) || cell.classList.contains(classes.attack)) {
+        if (isCellActive || cell.classList.contains(classes.attack)) {
             checkersWrapper.classList.add(classes.stopGame);
             handlerAnimationFigure(cell, cells);
+
+            if (isCurrentMove === 'black') {
+                isLastMoveBlack = isTargetFigure.closest(selectors.cellInner);
+            } else {
+                isLastMoveWhite = isTargetFigure.closest(selectors.cellInner);
+            }
 
             const cellsInnerLastMove = [...checkersWrapper.querySelectorAll(selectors.cellInnerLastMove)];
 
@@ -196,13 +210,14 @@ function handlerClickFigureOnMove() {
                     figure.remove();
                 } else if (isTargetFigure.classList.contains(classes.enPassant)) {
                     const dataIndex = handlerDataIndex(cell);
-                    const enPassantRemoveFigure = cells[isPawnBoardSize + dataIndex].querySelector(selectors.figure);
+                    const enPassantRemoveFigure = cells[-isBoardSize + dataIndex].querySelector(selectors.figure);
 
                     enPassantRemoveFigure.remove();
                 }
             }, (speedAnimation / 2));
 
             setTimeout(() => {
+
                 cellInner.append(isTargetFigure);
 
                 if (isTargetFigure.classList.contains(classesFigure.pawn)) {
@@ -222,36 +237,41 @@ function handlerClickFigureOnMove() {
 
                 isCurrentMove = isCurrentMove === 'black' ? 'white' : 'black';
                 removeClasses([classes.shah]);
+                const attackVectorToKingCopy = [...attackVectorToKing];
                 handlerShahCheckmat();
 
                 checkersWrapper.classList.remove(classes.stopGame);
 
                 // We block a move if there is a threat to the king after it.
                 if (isBlockedMove) {
-                    handlerOpenPopup("popup-blocked-move")
-                    // alert('This measure cannot be performed if the king is in check after this move.');
+                    handlerOpenPopup("popup-blocked-move");
                     isTargetInner.appendChild(isTargetFigure);
                     isClassFirstMove && isTargetFigure.classList.add(classes.firstMove);
 
                     removeClasses([classes.lastMove]);
 
-                    if (cellsInnerLastMove.length > 0) cellsInnerLastMove.forEach(cellInner => cellInner.classList.add(classes.lastMove));
+                    attackVectorToKing = [...attackVectorToKingCopy];
+                    if (cellsInnerLastMove.length > 0) {
+                        cellsInnerLastMove.forEach(cellInner => cellInner.classList.add(classes.lastMove));
+                    }
+
                     isCurrentMove = isTargetFigure.dataset.type;
 
                     figure && cellInner.appendChild(figure);
                     isBlockedMove = false;
-
                     return
                 }
 
                 // removeClasses([classes.enPassant]);
 
+                handler50MoveRule(isCellActive);
+
+                listDefenderAndKingPieces = [];
             }, speedAnimation);
 
             listMoves = [];
+            listMovesVectors = [];
             listAttackPawn = [];
-            listDefenderAndKingPieces = [];
-
             removeClasses([classes.active, classes.attack]);
             return;
         }
@@ -272,21 +292,8 @@ function handlerClickFigureOnMove() {
     });
 }
 
-function handlerClickFigure(cellEl, figureEl) {
-    // const cells = [...checkersWrapper.querySelectorAll(selectors.cell)];
-    //
-    // if (cells.length < 1) return;
-    //
-    // cells.forEach(cell => {
-    //     const figure = cell.querySelector(selectors.figure);
-    //
-    //     if (!figure) return;
-    //
-    //     figure.addEventListener('click', function () {
-    //
-    //     });
-    // });
-    console.log(listDefenderAndKingPieces)
+// The function handler a click on a shape.
+function handlerClickTargetFigure(cellEl, figureEl) {
     if (listDefenderAndKingPieces.length > 0) {
         const figure = cellEl.querySelector(selectors.figure);
 
@@ -299,11 +306,17 @@ function handlerClickFigure(cellEl, figureEl) {
 
     if (!cellEl?.classList.contains(classes.attack) && handlerFigureCurrentMove(figureEl)) {
         isTargetFigure = figureEl;
-        isTargetInner = isTargetFigure.closest(selectors.cellInner);
         isTargetIndex = +cellEl.dataset.index;
     }
 }
 
+// Handles shape movements based on their type.
+// The function checks the type of piece and calls the appropriate movement handler for that piece.
+// It works with pieces such as pawn, king, knight, rook, bishop, and queen.
+//
+// @param {HTMLElement} targetFigure - The element of the figure for which you want to handle the motion.
+// @param {Array} list - A list of available squares or other data related to possible moves.
+// @param {boolean} isAddClasses - If true, adds classes to display the available figure moves.
 function handlerFigures(targetFigure, list, isAddClasses) {
     if (!targetFigure) return;
 
@@ -328,12 +341,10 @@ function handlerFigures(targetFigure, list, isAddClasses) {
 
 // We process the Pawn
 function handlerPawn(pawn, cells, isAddClasses) {
-    const listNotMovesLeft = [0, 8, 16, 24, 32, 40, 48, 56];
-    const listNotMovesRight = [7, 15, 23, 31, 39, 47, 55, 63];
     const dataIndex = handlerDataIndex(pawn);
     const isBlack = pawn.dataset.type === 'black';
     const forLength = pawn.classList.contains(classes.firstMove) ? 3 : 2;
-    const isPawnBoardSize = handlerBoardSize(isCurrentMove === 'black');
+
     let directions;
 
     if (isBlack) {
@@ -349,8 +360,8 @@ function handlerPawn(pawn, cells, isAddClasses) {
     }
 
     if (!handlerFigureCurrentMove(pawn) || (isTargetFigure === pawn && pawn.classList.contains(classes.enPassant))) {
-        directionsLeftRight.forEach(number => {
-            const directionFigure = cells[number + dataIndex].querySelector(selectors.figure);
+        directionsLeftRight.forEach(direction => {
+            const directionFigure = cells[direction + dataIndex].querySelector(selectors.figure);
 
             if (directionFigure) {
                 if (directionFigure.classList.contains(classes.firstMove) && handlerFigureCurrentMove(directionFigure)) {
@@ -358,42 +369,42 @@ function handlerPawn(pawn, cells, isAddClasses) {
                 }
 
                 if (isTargetFigure === pawn && directionFigure.closest(selectors.cellInner).classList.contains(classes.lastMove) && pawn.classList.contains(classes.enPassant)) {
-                    cells[isPawnBoardSize + (number + dataIndex)].classList.add(classes.attack);
+                    cells[isBoardSize + (direction + dataIndex)].classList.add(classes.attack);
                 }
             }
         });
     }
 
-    for (let i=0; i<directions.length; i++) {
+    directions.forEach(({dx, dy}) => {
         getMoves(pawn, pawn.closest(selectors.cell));
 
-        const dx = directions[i].dx;
-        const dy = directions[i].dy;
         const nextMoveIndex = dataIndex + (dx * isBoardSize + dy);
 
-        if (0 > nextMoveIndex || nextMoveIndex >= cells.length) {
-            return
+        if (handlerLimitingTravelAbroad(cells, dataIndex, nextMoveIndex, dy)) {
+            return;
         }
 
         const nextMoveAttack = cells[nextMoveIndex];
         const nextMoveAttackFigure = nextMoveAttack.querySelector(selectors.figure);
 
-        // console.log(!handlerAddClasses(listNotMovesLeft, listNotMovesRight, isTargetIndex, nextMoveIndex), nextMoveAttack)
-        if (!nextMoveAttackFigure && !handlerAddClasses(listNotMovesLeft, listNotMovesRight, dataIndex, nextMoveIndex)) {
+        // if (!nextMoveAttackFigure) {
             listAttackPawn.push({
                 from: pawn,
                 to: nextMoveAttack
             });
-        }
+        // }
 
         if (nextMoveAttack && nextMoveAttackFigure && !handlerFigureCurrentMove(nextMoveAttackFigure)) {
-            isAddClasses && nextMoveAttack.classList.add(classes.attack);
+            if (isMoveValidConsideringCheck(nextMoveAttack)) {
+                isAddClasses && nextMoveAttack.classList.add(classes.attack);
+            }
         }
-    }
+    })
 
     for (let i=1; i<forLength; i++) {
-        const isBoardSize = handlerBoardSize(isBlack) * i;
-        const nextMoveIndex = dataIndex + isBoardSize;
+        // const isBoardSize = handlerBoardSize(isBlack) * i;
+        const boardOffset = isBlack ? isBoardSize : -isBoardSize;
+        const nextMoveIndex = dataIndex + (boardOffset * i);
 
         if (0 > nextMoveIndex || nextMoveIndex >= cells.length) {
             break
@@ -405,9 +416,29 @@ function handlerPawn(pawn, cells, isAddClasses) {
             break;
         }
 
-        isAddClasses && nextMove.classList.add(classes.active);
-        getMoves(pawn, nextMove);
+        if (isMoveValidConsideringCheck(nextMove)) {
+            isAddClasses && nextMove.classList.add(classes.active);
+            getMoves(pawn, nextMove);
+        }
     }
+}
+
+function isMoveValidConsideringCheck(nextMove) {
+    let lineVectorFigureCount = 0;
+
+    lineVectorToKing.find(cell => {
+        if (cell.querySelector(selectors.figure) && handlerFigureCurrentMove(cell.querySelector(selectors.figure))) {
+            lineVectorFigureCount++;
+        }
+    });
+
+    const isVectorValid = attackVectorToKing.length === 0 || attackVectorToKing.includes(nextMove);
+    const targetCell = isTargetFigure.closest(selectors.cell);
+    const isOnLineToKing = lineVectorToKing.includes(targetCell);
+    const isNextMoveOnLine = lineVectorToKing.includes(nextMove);
+    const isValidMoveConsideringLine = (!isOnLineToKing || lineVectorFigureCount > 1) || (isOnLineToKing && isNextMoveOnLine);
+
+    return isVectorValid && isValidMoveConsideringLine;
 }
 
 // When a pawn reaches the desired square, we give it the opportunity to change into one of the captured pieces.
@@ -424,30 +455,12 @@ function handlerPawnTransformationPopup(pawn) {
     }
 
     handlerOpenPopup(`popup-figures-${pawnType}`);
-
-    // popups.forEach(popup => {
-    //     if (pawnType === popup.dataset.popupType) {
-    //         const figures = [...popup.querySelectorAll(selectors.figure)];
-    //
-    //         if (figures.length < 1) return;
-    //
-    //         figures.forEach(figure => {
-    //             figure.addEventListener('click', function() {
-    //                 if (!this.closest(selectors.popup)) return;
-    //
-    //                 const pawnInner = pawn.closest(selectors.cellInner);
-    //
-    //                 pawnInner.innerHTML = this.outerHTML;
-    //                 popup.classList.remove(classes.active);
-    //                 checkersWrapper.classList.remove(classes.stopGame);
-    //             });
-    //         });
-    //     }
-    // });
 }
 
 // Transform the pawn into the selected piece.
 function handlerPawnTransformation(target) {
+    const cells = [...container.querySelectorAll(selectors.cell)];
+
     if (!target.closest(selectors.figure) || !target.closest(selectors.popup)) {
         return
     }
@@ -459,6 +472,15 @@ function handlerPawnTransformation(target) {
     isTargetInner.innerHTML = figure.outerHTML;
     popup.classList.remove(classes.active);
     checkersWrapper.classList.remove(classes.stopGame);
+
+    listMoves = [];
+    listMovesVectors = [];
+
+    cells.forEach(cell => {
+        handlerFigures(cell.querySelector(selectors.figure), cells, false);
+    });
+
+    handlerShahCheckmat();
 }
 
 // Open the popup.
@@ -491,6 +513,7 @@ function addedFiguresIsPopup(target) {
     }
 
     popup.classList.remove(classes.active);
+    checkersWrapper.classList.remove(classes.stopGame);
 }
 
 // We process the King.
@@ -508,23 +531,15 @@ function handlerKing(king, cells, isAddClasses) {
     directions.forEach(({dx, dy}) => {
         const nextMoveIndex = dataIndex + (dx * isBoardSize + dy);
 
-        if (0 > nextMoveIndex || nextMoveIndex >= cells.length) return;
+        if (handlerLimitingTravelAbroad(cells, dataIndex, nextMoveIndex, dy)) {
+            return;
+        }
 
         const nextMove = cells[nextMoveIndex];
         const nextMoveFigure = nextMove.querySelector(selectors.figure);
-        // const classHandlerResult = handlerAddClasses(notMoveLeft, notMoveRight, isTargetIndex, nextMoveIndex);
-        //
-        // if (classHandlerResult) return;
 
-        if ((dataIndex % isBoardSize === 0 && nextMoveIndex % isBoardSize === 7 && dy === -1) ||
-            (dataIndex % isBoardSize === 7 && nextMoveIndex % isBoardSize === 0 && dy === 1)) {
-            return
-        }
-
-        if (nextMove && nextMoveFigure && nextMoveFigure.dataset.type !== king.dataset.type) {
-            // if (isAddClasses && !previousListMovesTo.includes(nextMove)) {
-                isAddClasses && nextMove.classList.add(classes.attack);
-            // }
+        if (nextMove && nextMoveFigure && nextMoveFigure.dataset.type !== king.dataset.type && !previousListMovesTo.includes(nextMove)) {
+            isAddClasses && nextMove.classList.add(classes.attack);
 
             getMoves(king, king.closest(selectors.cell));
             getMoves(king, nextMove);
@@ -584,8 +599,6 @@ function handlerKingCastling(cell, cells) {
 
 // We process the Horse.
 function handlerHorse(horse, cells, isAddClasses) {
-    const notMoveLeft = [0, 1, 2, 8, 9, 10, 16, 17, 18, 24, 25, 26, 32, 33, 34, 40, 41, 42, 48, 49, 50, 56, 57, 58];
-    const notMoveRight = [5, 6, 7, 13, 14, 15, 21, 22, 23, 29, 30, 31, 37, 38, 39, 45, 46, 47, 53, 54, 55, 61, 62, 63];
     const dataIndex = handlerDataIndex(horse);
     const directions = [
         { dx: 2, dy: 1 }, { dx: 2, dy: -1 },
@@ -604,25 +617,31 @@ function handlerHorse(horse, cells, isAddClasses) {
         const nextMoveFigure = nextMove.querySelector(selectors.figure);
 
         if (!nextMoveFigure) {
-            const isVectorValid = attackVectorToKing.length === 0 || attackVectorToKing.includes(nextMove);
-
-            if (isVectorValid) {
+            if (isMoveValidConsideringCheck(nextMove)) {
                 isAddClasses && nextMove.classList.add(classes.active);
                 getMoves(horse, horse.closest(selectors.cell));
                 getMoves(horse, nextMove);
             }
         } else if (!handlerFigureCurrentMove(nextMoveFigure)) {
-            isAddClasses && nextMove.classList.add(classes.attack);
-            getMoves(horse, horse.closest(selectors.cell));
-            getMoves(horse, nextMove);
+            if (isMoveValidConsideringCheck(nextMove)) {
+                isAddClasses && nextMove.classList.add(classes.attack);
+                getMoves(horse, horse.closest(selectors.cell));
+                getMoves(horse, nextMove);
+            }
         }
     });
 }
 
-// We create a function that checks if the shape has not gone beyond the board, for these cells in this case we do not add classes to move.
-function handlerAddClasses(arrLeft, arrRight, targetIndex, moveIndex) {
-    return arrLeft.includes(targetIndex) && arrRight.includes(moveIndex) || arrRight.includes(targetIndex) && arrLeft.includes(moveIndex);
-}
+
+
+ // Processes moves for the following pieces: queen, bishop and rook.
+ // The function determines the available moves for these pieces on the chessboard,
+ // by checking the directions of movement (horizontal, vertical, diagonal)
+ // and distance limits.
+ //
+ // @param "{HTMLElement} figure" - The element of the moving piece.
+ // @param {Array} cells - A list of available cells where the figure can move.
+ // @param {boolean} isAddClasses - If true, adds classes to display the available moves.
 
 function handleQueenBishopRookMoves(figure, cells, isAddClasses) {
     const listNotMovesLeft = [0, 8, 16, 24, 32, 40, 48, 56];
@@ -657,34 +676,32 @@ function handleQueenBishopRookMoves(figure, cells, isAddClasses) {
         ];
     }
 
-    directions.forEach(({dx, dy}, index) => {
+    getMovesWithoutTakingIntoAccountObstacles(cells, figure, directions, dataIndex, listNotMovesLeft, listNotMovesRight);
+
+    directions.forEach(({dx, dy}) => {
         for (let i=1; i<8; i++) {
             const nextMoveIndex = dataIndex + (dx * i * isBoardSize + i * dy);
 
-            if (0 > nextMoveIndex || nextMoveIndex >= cells.length) break;
+            if (handlerLimitingTravelAbroad(cells, dataIndex, nextMoveIndex, dy)) {
+                break;
+            }
 
             const nextMove = cells[nextMoveIndex];
             const nextMoveFigure = nextMove.querySelector(selectors.figure);
 
-            if ((dataIndex % isBoardSize === 0 && nextMoveIndex % isBoardSize === 7 && dy === -1) ||
-                (dataIndex % isBoardSize === 7 && nextMoveIndex % isBoardSize === 0 && dy === 1)) {
-                break
-            }
-
-            const isVectorValid = attackVectorToKing.length === 0 || attackVectorToKing.includes(nextMove);
-
             if (isAddClasses) {
                 if (!nextMoveFigure) {
-                    if (isVectorValid) {
+                    if (isMoveValidConsideringCheck(nextMove)) {
                         nextMove.classList.add(classes.active);
                     }
                 } else {
-                    if (!handlerFigureCurrentMove(nextMoveFigure) && isVectorValid) {
+                    if (!handlerFigureCurrentMove(nextMoveFigure) && isMoveValidConsideringCheck(nextMove)) {
                         nextMove.classList.add(classes.attack);
                     }
 
                     break
                 }
+
             } else {
                 if (i === 1) {
                     getMoves(figure, figure.closest(selectors.cell));
@@ -696,9 +713,84 @@ function handleQueenBishopRookMoves(figure, cells, isAddClasses) {
             }
 
             // if ((nextMoveIndex % 8 === 0 && dy === -1) || (nextMoveIndex % 8 === 7 && dy === 1)) break;
-            if ((listNotMovesLeft.includes(nextMoveIndex) && dy === -1) || (listNotMovesRight.includes(nextMoveIndex) && dy === 1)) break;
+            if (handlerRestrictingMovementSideDirection(listNotMovesLeft, listNotMovesRight, nextMoveIndex, dy)) break;
         }
     });
+}
+
+// Calculates the available moves for a piece without taking into account obstacles (pieces that block the move).
+// The function checks all possible directions of a piece's movement within the board, and adds the possible moves
+// to the list without checking for other pieces or obstacles.
+//
+// @param {Array} cells - An array of all cells on the board.
+// @param {HTMLElement} figure - The element of the figure for which the possible moves are calculated.
+// @param {Array} directions - An array of directions of movement, each containing `dx' (horizontal offset) and `dy' (vertical offset).
+// @param {number} dataIndex - The current index of the cell on the board where the figure is located.
+// listNotMovesLeft - A list of cell indices that block the movement of the figure to the left.
+// listNotMovesRight - A list of cell indices that block the movement of the shape to the right.
+function getMovesWithoutTakingIntoAccountObstacles(cells, figure, directions, dataIndex, listNotMovesLeft, listNotMovesRight) {
+    directions.forEach(({dx, dy}) => {
+        for (let i = 1; i < 8; i++) {
+            const nextMoveIndex = dataIndex + (dx * i * isBoardSize + i * dy);
+
+            if (handlerLimitingTravelAbroad(cells, dataIndex, nextMoveIndex, dy)) {
+                break;
+            }
+
+            const nextMove = cells[nextMoveIndex];
+            const nextMoveFigure = nextMove.querySelector(selectors.figure);
+
+            if (i === 1) {
+                listMovesVectors.push(
+                    {
+                        from: figure,
+                        to: figure.closest(selectors.cell)
+                    }
+                );
+            }
+
+            if (figure.dataset.type === nextMoveFigure?.dataset.type) {
+                break;
+            }
+
+            listMovesVectors.push(
+                {
+                    from: figure,
+                    to: nextMove
+                }
+            );
+
+            if (handlerRestrictingMovementSideDirection(listNotMovesLeft, listNotMovesRight, nextMoveIndex, dy)) break;
+        }
+    });
+}
+
+// Restricts the movement of a piece off the board in certain directions.
+// The function checks whether the move is off the board, taking into account the positions of the cells
+// and the direction of the piece's movement.
+//
+// @param {Array} cells - An array of all cells on the board.
+// @param {number} index - The current index of the cell where the piece is located.
+// @param {number} moveIndex - The integral index of the cell to which the shape is trying to move.
+// @param {number} dy - Vertical offset indicating the direction of movement (1 for down, -1 for up).
+// @returns {boolean} - Returns `true` if the move goes beyond the board or there are restrictions, otherwise `false`.
+function handlerLimitingTravelAbroad(cells, index, moveIndex, dy) {
+    if (0 > moveIndex || moveIndex >= cells.length) {
+        return true;
+    }
+
+    if (
+        (index % isBoardSize === 0 && moveIndex % isBoardSize === 7 && dy === -1) ||
+        (index % isBoardSize === 7 && moveIndex % isBoardSize === 0 && dy === 1)
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+function handlerRestrictingMovementSideDirection(left, right, moveIndex, dy) {
+    return (left.includes(moveIndex) && dy === -1) || (right.includes(moveIndex) && dy === 1)
 }
 
 // We get all the moves of the current chess side.
@@ -715,38 +807,57 @@ function getMoves(fromFigure, cell) {
 function handlerShahCheckmat() {
     if (listMoves.length <= 0) return;
 
+    // listMovesVectors = [];
     const currentListMoves = listMoves.filter(move => handlerFigureCurrentMove(move.from));
     const previousListMoves = listMoves.filter(move => !handlerFigureCurrentMove(move.from));
+    const previousLineVectorToKing = listMovesVectors.filter(move => !handlerFigureCurrentMove(move.from));
     // listDefenderAndKingPieces = [];
     attackVectorToKing = [];
+    lineVectorToKing = [];
 
-    if (currentListMoves.length === 0 || previousListMoves.length === 0) return;
+    if (currentListMoves.length === 0 || previousListMoves.length === 0) {
+        return;
+    }
 
-    handlerAttackVectorToKing(previousListMoves);
+    attackVectorToKing.push(...handlerAttackVectorToKing(previousListMoves));
 
+    lineVectorToKing.push(...handlerAttackVectorToKing(previousLineVectorToKing));
+    lineVectorToKing.forEach(move => {
+        // if (move.to.querySelector(`.${classesFigure.king}`)) {
+        //     console.log(move.from)
+        // }
+
+        console.log(move)
+    });
+    // console.log(listMovesVectors)
+    // lineVectorToKing = []
     handlerListDefenderAndKingPieces(currentListMoves, previousListMoves);
 }
 
 // We get the direction of the pieces' moves to the king into an array.
-function handlerAttackVectorToKing(previousList) {
-    previousList.forEach((previousMove, index, arr) => {
+function handlerAttackVectorToKing(list) {
+    let attackVectors = []
+
+    list.forEach((previousMove, index, arr) => {
         const elKing = previousMove.to.querySelector(`.${classesFigure.king}`);
 
         if (handlerFigureCurrentMove(elKing)) {
-            let attackVector = [];
+            let vector = [];
 
             for (let j=1; j<=8; j++) {
                 if (arr[index - j].to.querySelector(selectors.figure) !== previousMove.from) {
-                    attackVector.push(arr[index - j].to);
+                    vector.push(arr[index - j].to);
                 } else {
-                    attackVector.push(arr[index - j].to);
+                    vector.push(arr[index - j].to);
                     break;
                 }
             }
 
-            attackVectorToKing.push(...attackVector);
+            attackVectors.push(...vector);
         }
     });
+
+    return attackVectors
 }
 
 // We get the pieces in the array from which checkmate for the king.
@@ -769,7 +880,7 @@ function handlerListDefenderAndKingPieces(currentList, previousList) {
     // We check whether the move can be blocked if the king is in check after it.
     isBlockedMove = currentList.some(currentMove => {
         const figure = currentMove.to.querySelector(selectors.figure);
-        // console.log(currentMove.to)
+
         return figure && figure.classList.contains(classesFigure.king) && !handlerFigureCurrentMove(figure);
     });
 
@@ -809,10 +920,6 @@ function handlerListDefenderAndKingPieces(currentList, previousList) {
         // console.log(previousListMovesTo)
         console.log("Checkmate");
     }
-
-    // console.log(listDefenderAndKingPieces, "listDefenderAndKingPieces")
-    console.log(attackVectorToKing, "attackVectorToKing")
-    // console.log(isBlockedMove, "isBlockedMove")
 }
 
 // We get the index of the cell on which the figure is located.
@@ -821,6 +928,19 @@ function handlerDataIndex(element) {
         return +element.closest(selectors.cell).dataset.index;
     } else {
         return +element.dataset.index;
+    }
+}
+
+// Calling the fifty-move rule popup.
+function handler50MoveRule(isMove) {
+    if (isMove) {
+        countMoves++
+
+        if (countMoves >= 50) {
+            handlerOpenPopup("popup-ending-in-draw");
+        }
+    } else {
+        countMoves = 0;
     }
 }
 
@@ -866,7 +986,7 @@ function handlerAnimationFigure(cellMove, listCell) {
     const translateX = (cellMoveRect.left - checkersWrapperRect.left) - (isTargetFigureRect.left - checkersWrapperRect.left);
 
     const dataIndex = handlerDataIndex(cellMove);
-    const isTargetAhead  = isTargetIndex > dataIndex;
+    const isTargetAhead = isTargetIndex > dataIndex;
     const cellRock = listCell[+cellMove.dataset.index + (isTargetAhead ? -1 : 1)];
     const figureRook = cellRock?.querySelector(selectors.figure);
 
