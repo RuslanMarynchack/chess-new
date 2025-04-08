@@ -31,8 +31,15 @@
 
         <div class="popup js-popup" id="popup-ending-in-draw">
             <div class="popup__content">
-                <button class="popup__close js-popup-close">&times;</button>
                 <p>The game ended in a draw.</p>
+                <button class="button restart js-restart">Restart?</button>
+            </div>
+        </div>
+
+        <div class="popup js-popup" id="popup-game-over">
+            <div class="popup__content">
+                <p>A victory for the <span class="is-winner">black</span> pieces.</p>
+                <button class="button restart js-restart">Restart?</button>
             </div>
         </div>
     </div>

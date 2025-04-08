@@ -3,6 +3,17 @@
     padding: 0;
     box-sizing: border-box;
 }
+body {
+    font-family: sans-serif;
+}
+.button {
+    padding: 8px 12px;
+    background-color: #000;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 700;
+    border-radius: 8px;
+}
 .container .checkers__wrapper {
     max-width: 800px;
     width: 100%;
@@ -119,6 +130,10 @@
     transform: scale(0);
     transition-property: transform;
     transition-duration: 0.7s;
+}
+.container .restart {
+    display: block;
+    margin: 20px auto 0 auto;
 }
 .container .figures-popup {
     position: fixed;
