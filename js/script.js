@@ -8,6 +8,7 @@ const selectors = {
     cellInnerLastMove: '.js-checkers-cell-inner.is-last-move',
     figure: '.js-cell-figure',
     figurePawn: '.js-cell-figure.is-pawn',
+    figureRook: '.js-cell-figure.is-rook',
     popup: '.js-popup',
     popupClose: '.js-popup-close',
     btnRestart: '.js-restart',
@@ -154,9 +155,9 @@ function arrangeFigures() {
             addElementClassesWithAttributes(figure, classesFigure.pawn, true, "black", "♟");
         } else if (index >= 48 && index <= 55) {
             addElementClassesWithAttributes(figure, classesFigure.pawn, true, "white", "♙");
-        } else if (index === 3) {
+        } else if (index === 4) {
             addElementClassesWithAttributes(figure, classesFigure.king, true, "black", "♚");
-        } else if (index === 59) {
+        } else if (index === 60) {
             addElementClassesWithAttributes(figure, classesFigure.king, true, "white", "♔");
         } else if (index === 1|| index === 6) {
             addElementClassesWithAttributes(figure, classesFigure.horse, false, "black", "♞");
@@ -170,9 +171,9 @@ function arrangeFigures() {
             addElementClassesWithAttributes(figure, classesFigure.bishop, false, "black", "♝");
         } else if (index === 58 || index === 61) {
             addElementClassesWithAttributes(figure, classesFigure.bishop, false, "white", "♗");
-        } else if (index === 4) {
+        } else if (index === 3) {
             addElementClassesWithAttributes(figure, classesFigure.queen, false, "black", "♛");
-        } else if (index === 60) {
+        } else if (index === 59) {
             addElementClassesWithAttributes(figure, classesFigure.queen, false, "white", "♕");
         }
     });
@@ -580,7 +581,13 @@ function handlerKing(king, cells, isAddClasses) {
         const nextMove = cells[nextMoveIndex];
         const nextMoveFigure = nextMove.querySelector(selectors.figure);
 
-        if (nextMove && nextMoveFigure && nextMoveFigure.dataset.type !== king.dataset.type && !potentialAttackCells.includes(nextMove) && !previousListMovesTo.includes(nextMove)) {
+        if (
+            nextMove &&
+            nextMoveFigure &&
+            nextMoveFigure.dataset.type !== king.dataset.type &&
+            !potentialAttackCells.includes(nextMove) &&
+            !previousListMovesTo.includes(nextMove)
+        ) {
             isAddClasses && nextMove.classList.add(classes.attack);
 
             getMoves(king, king.closest(selectors.cell), availableMoves);
@@ -603,15 +610,20 @@ function handlerKing(king, cells, isAddClasses) {
             for (let i=1; i<4; i++) {
                 const nextMoveIndex = dataIndex + (direction * i);
                 const nextMoveCastling = cells[nextMoveIndex];
-                const figure = nextMoveCastling.querySelector(selectors.figure);
+                const blockingFigure  = nextMoveCastling.querySelector(selectors.figure);
 
-                if (figure) break;
+                if (blockingFigure  || previousListMovesTo.includes(nextMoveCastling)) break;
 
-                const figureRook = cells[nextMoveIndex + direction]?.querySelector(selectors.figure);
+                const figureRook = cells[nextMoveIndex + direction]?.querySelector(selectors.figureRook);
 
-                if (figureRook && figureRook.classList.contains(classes.firstMove) && !previousListMovesTo.includes(nextMoveCastling)) {
+                if (figureRook && figureRook.classList.contains(classes.firstMove)) {
                     isSelectedRook = figureRook;
-                    isAddClasses && nextMoveCastling.classList.add(classes.active);
+
+                    if (isAddClasses) {
+                        const castlingTarget = direction === -1 ? cells[nextMoveIndex - direction] : cells[nextMoveIndex];
+
+                        castlingTarget.classList.add(classes.active);
+                    }
 
                     getMoves(king, nextMoveCastling, availableMoves);
                 }
@@ -629,7 +641,9 @@ function handlerKingCastling(cell, cells) {
     if (figureKing && figureKing.classList.contains(classesFigure.king) && figureKing.classList.contains(classes.firstMove)) {
         const dataIndex = handlerDataIndex(figureKing);
         const isTargetIndexCastling = isSelectedIndex > dataIndex ? -1 : 1;
-        const figureRook = cells[dataIndex + isTargetIndexCastling].querySelector(selectors.figure);
+        const rookIndex = dataIndex + (isTargetIndexCastling === -1 ? -2 : 1);
+
+        const figureRook = cells[rookIndex].querySelector(selectors.figure);
 
         if (figureRook && figureRook.classList.contains(classes.firstMove) && figureRook.classList.contains(classesFigure.rook)) {
             const nextMoveCastlingRookInner = cells[dataIndex - isTargetIndexCastling].querySelector(selectors.cellInner);
@@ -858,6 +872,7 @@ function handlerShahCheckmat() {
     attackVectorsToKing.push(...handlerAttackVectorToKing(previousListMoves));
 
     attackVectorsToKingWithoutObstacles.push(...handlerAttackVectorToKing(previousLineVectorToKing));
+
     handlerListDefenderAndKingPieces(currentListMoves, previousListMoves);
 }
 
@@ -1052,7 +1067,7 @@ function handlerAnimationFigure(cellMove, listCell) {
 
     const dataIndex = handlerDataIndex(cellMove);
     const isTargetAhead = isSelectedIndex > dataIndex;
-    const indexRock = +cellMove.dataset.index + (isTargetAhead ? -1 : 1);
+    const indexRock = +cellMove.dataset.index + (isTargetAhead ? -2 : 1);
     const cellRock = listCell[indexRock];
     const figureRook = cellRock?.querySelector(selectors.figure);
 
@@ -1065,7 +1080,7 @@ function handlerAnimationFigure(cellMove, listCell) {
         figureRook.classList.contains(classesFigure.rook) &&
         figureRook.classList.contains(classes.firstMove)
     ) {
-        const figureRookTranslateX = isTargetAhead ? '218%' : '-218%';
+        const figureRookTranslateX = isTargetAhead ? '326%' : '-218%';
 
         figureRook.style.transform = `translateX(${figureRookTranslateX})`;
 
