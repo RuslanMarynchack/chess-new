@@ -25,7 +25,8 @@ const classes = {
     lastMove: 'is-last-move',
     shah: 'is-shah',
     enPassant: 'is-en-passant',
-    stopGame: 'is-stop-game'
+    stopGame: 'is-stop-game',
+    playerBlack: 'is-player-black'
 }
 
 const classesFigure = {
@@ -111,7 +112,7 @@ function arrangeFigures() {
         // if (41 === index || 42 === index) {
         //     // && index <= 42 || index > 21 && index <= 23 || index === 51 || index === 53
         //     cellInner.append(figure);
-        // } else if (index === 3 || index === 59) {
+        // } else if (index === 4 || index === 60) {
         //     cellInner.append(figure);
         // } else if (index === 1 || index === 6 || index === 57 || index === 62) {
         //     // cellInner.append(figure);
@@ -119,20 +120,20 @@ function arrangeFigures() {
         //     // || index === 56 || index === 63
         //     cellInner.append(figure);
         // } else if (index === 2 || index === 5 || index === 58 || index === 61) {
-        //     // cellInner.append(figure);
+        //     cellInner.append(figure);
         // } else if (index === 4 || index === 60) {
         //     // cellInner.append(figure);
         // }
-        //
+
         // if (41 === index || 42 === index) {
         //     // index >= 8 && index <= 15 &&
         //     addElementClassesWithAttributes(figure, classesFigure.pawn, true, "black", "♟");
         // } else if (index >= 48 && index <= 55) {
         //     addElementClassesWithAttributes(figure, classesFigure.pawn, true, "white", "♙");
-        // } else if (index === 3) {
-        //     addElementClassesWithAttributes(figure, classesFigure.king, true, "black", "♚");
-        // } else if (index === 59) {
-        //     addElementClassesWithAttributes(figure, classesFigure.king, true, "white", "♔");
+        //     } else if (index === 4) {
+        //         addElementClassesWithAttributes(figure, classesFigure.king, true, "black", "♚");
+        //     } else if (index === 60) {
+        //         addElementClassesWithAttributes(figure, classesFigure.king, true, "white", "♔");
         // } else if (index === 1|| index === 6) {
         //     addElementClassesWithAttributes(figure, classesFigure.horse, false, "black", "♞");
         // } else if (index === 57  || index === 62) {
@@ -315,7 +316,7 @@ function handlerClickFigureOnMove() {
                 }
 
                 handler50MoveRule(isCellActive);
-
+                handlerCurrentPlayer();
                 defendersAndKing = [];
 
                 if (attackVectorsToKing.length < 1) {
@@ -445,8 +446,6 @@ function handlerPawn(pawn, cells, isAddClasses) {
                 potentialAttackCells.push(nextMoveAttack);
             }
         }
-        // getMoves(pawn, nextMoveAttack, listAttackPawn);
-        // potentialAttackCells.push(nextMoveAttack);
 
         if (nextMoveAttack && nextMoveAttackFigure && !handlerFigureCurrentMove(nextMoveAttackFigure)) {
             if (isMoveValidConsideringCheck(nextMoveAttack)) {
@@ -1054,6 +1053,15 @@ function removeClasses(classList) {
             }
         });
     });
+}
+
+// Indicates who is currently moving: if it is a black player, add a class for styling, otherwise remove this class.
+function handlerCurrentPlayer() {
+    if (isCurrentPlayer === "black") {
+        checkersWrapper.classList.add(classes.playerBlack);
+    } else {
+        checkersWrapper.classList.remove(classes.playerBlack);
+    }
 }
 
 // Adding animation for figures when moving.
