@@ -109,38 +109,38 @@ function arrangeFigures() {
             cellInner.append(figure);
         }
 
-        // if (41 === index || 42 === index) {
+        // if (index === 4 || index === 43 || index === 27) {
         //     // && index <= 42 || index > 21 && index <= 23 || index === 51 || index === 53
         //     cellInner.append(figure);
-        // } else if (index === 4 || index === 60) {
+        // } else if (26 === index || 28 === index) {
         //     cellInner.append(figure);
         // } else if (index === 1 || index === 6 || index === 57 || index === 62) {
         //     // cellInner.append(figure);
-        // } else if (index === 0 || index === 19 || index === 56 || index === 63) {
+        // } else if (index === 0 || index === 20 || index === 56 || index === 63) {
         //     // || index === 56 || index === 63
         //     cellInner.append(figure);
         // } else if (index === 2 || index === 5 || index === 58 || index === 61) {
-        //     cellInner.append(figure);
+        //     // cellInner.append(figure);
         // } else if (index === 4 || index === 60) {
         //     // cellInner.append(figure);
         // }
-
-        // if (41 === index || 42 === index) {
+        //
+        // if (26 === index || 28 === index) {
         //     // index >= 8 && index <= 15 &&
         //     addElementClassesWithAttributes(figure, classesFigure.pawn, true, "black", "♟");
-        // } else if (index >= 48 && index <= 55) {
+        // } else if (index === 3 || index === 43) {
         //     addElementClassesWithAttributes(figure, classesFigure.pawn, true, "white", "♙");
-        //     } else if (index === 4) {
+        //     } else if (index === 27) {
         //         addElementClassesWithAttributes(figure, classesFigure.king, true, "black", "♚");
-        //     } else if (index === 60) {
+        //     } else if (index === 4) {
         //         addElementClassesWithAttributes(figure, classesFigure.king, true, "white", "♔");
         // } else if (index === 1|| index === 6) {
         //     addElementClassesWithAttributes(figure, classesFigure.horse, false, "black", "♞");
         // } else if (index === 57  || index === 62) {
         //     addElementClassesWithAttributes(figure, classesFigure.horse, false, "white", "♘");
-        // } else if (index === 0 || index === 19) {
-        //     addElementClassesWithAttributes(figure, classesFigure.rook, true, "black", "♜");
         // } else if (index === 56 || index === 63) {
+        //     addElementClassesWithAttributes(figure, classesFigure.rook, true, "black", "♜");
+        // } else if (index === 0 || index === 20) {
         //     addElementClassesWithAttributes(figure, classesFigure.rook, true, "white", "♖");
         // } else if (index === 2 || index === 5) {
         //     addElementClassesWithAttributes(figure, classesFigure.bishop, false, "black", "♝");
@@ -443,9 +443,12 @@ function handlerPawn(pawn, cells, isAddClasses) {
             if (pawn.dataset.type !== nextMoveAttackFigure.dataset.type && isMoveValidConsideringCheck(nextMoveAttack)) {
                 getMoves(pawn, nextMoveAttack, availableMoves);
             } else {
-                potentialAttackCells.push(nextMoveAttack);
+
             }
         }
+
+        getMoves(pawn, nextMoveAttack, listAttackPawn);
+
 
         if (nextMoveAttack && nextMoveAttackFigure && !handlerFigureCurrentMove(nextMoveAttackFigure)) {
             if (isMoveValidConsideringCheck(nextMoveAttack)) {
@@ -470,8 +473,9 @@ function handlerPawn(pawn, cells, isAddClasses) {
 
         if (isMoveValidConsideringCheck(nextMove)) {
             isAddClasses && nextMove.classList.add(classes.active);
-            getMoves(pawn, nextMove, availableMoves);
         }
+
+        getMoves(pawn, nextMove, availableMoves);
     }
 }
 
@@ -584,7 +588,6 @@ function handlerKing(king, cells, isAddClasses) {
             nextMove &&
             nextMoveFigure &&
             nextMoveFigure.dataset.type !== king.dataset.type &&
-            !potentialAttackCells.includes(nextMove) &&
             !previousListMovesTo.includes(nextMove)
         ) {
             isAddClasses && nextMove.classList.add(classes.attack);
@@ -926,9 +929,10 @@ function handlerListDefenderAndKingPieces(currentList, previousList) {
     });
 
     if (!isBlockedMove) {
+        const currentPlayerListAttackPawn = listAttackPawn.filter(moveAttackPawn => !handlerFigureCurrentMove(moveAttackPawn.movingFigure));
+
         previousListMovesTo = previousList.filter(obj => !obj.movingFigure.classList.contains(classesFigure.pawn));
-        listAttackPawn = listAttackPawn.filter(moveAttackPawn => !handlerFigureCurrentMove(moveAttackPawn.movingFigure));
-        previousListMovesTo = [...previousListMovesTo, ...listAttackPawn].map(({movingFigure, destinationCell}) => {
+        previousListMovesTo = [...previousListMovesTo, ...currentPlayerListAttackPawn].map(({movingFigure, destinationCell}) => {
             if (movingFigure.closest(selectors.cell) !== destinationCell) {
                 return destinationCell
             }
@@ -979,7 +983,7 @@ function handlerListDefenderAndKingPieces(currentList, previousList) {
             defendersAndKing.push(cell);
         }
     });
-
+    console.log(isKingHasMove)
     if (!isKingHasMove) {
         if (isKingShah) {
             if (defendersAndKing.length < 1) {
